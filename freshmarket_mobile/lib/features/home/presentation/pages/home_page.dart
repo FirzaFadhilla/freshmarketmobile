@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../auth/presentation/pages/login_page.dart';
-// Tambahkan import database kita di sini
+import '../../../main/presentation/pages/main_layout.dart';
 import '../../../../core/service/database_helper.dart';
+import '../../../cart/presentation/pages/cart_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,6 +22,9 @@ class _HomePageState extends State<HomePage> {
   // Variabel untuk menampung data produk dari SQLite
   List<Map<String, dynamic>> _products = [];
   bool _isLoadingProducts = true;
+
+  bool _isLoggedIn = false;
+  String _userEmail = '';
 
   final List<Map<String, String>> _bannerItems = [
     {
@@ -40,6 +45,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadProducts(); // Panggil data dari database saat halaman dibuka
+    _loadLoginSession();
 
     _pageController = PageController(initialPage: 0);
     _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
@@ -73,6 +79,66 @@ class _HomePageState extends State<HomePage> {
         setState(() => _isLoadingProducts = false);
       }
     }
+  }
+
+  Future<void> _loadLoginSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+        _userEmail = prefs.getString('email') ?? '';
+      });
+    }
+  }
+
+  Future<void> _showLogoutDialog() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Keluar Akun',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Apakah Anda yakin ingin keluar dari akun ini?',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Batal',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear();
+                if (!mounted) return;
+                Navigator.pop(context); // Tutup dialog
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false,
+                );
+              },
+              child: Text(
+                'Keluar',
+                style: GoogleFonts.poppins(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -183,49 +249,102 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           
-          // Pojok Atas Kanan: Button Login (White 3D button, thick, with person/profile icon)
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-              );
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0xFFD1D5DB), // 3D shadow color
-                    offset: Offset(0, 4),
-                    blurRadius: 0,
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.person_rounded,
-                    color: Color(0xFF22C55E),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Masuk',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF111827),
+          // Pojok Atas Kanan: Button Login / Profil Orang
+          _isLoggedIn
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF22C55E), size: 22),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const CartPage()),
+                        ).then((_) => _loadProducts());
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                    GestureDetector(
+                      onTap: _showLogoutDialog,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _userEmail.contains('@')
+                                ? _userEmail.split('@')[0]
+                                : _userEmail,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF111827),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F5E9), // soft green background
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF4ADE80), // light green border
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              color: Color(0xFF22C55E),
+                              size: 18,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginPage()),
+                    );
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0xFFD1D5DB), // 3D shadow color
+                          offset: Offset(0, 4),
+                          blurRadius: 0,
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.person_rounded,
+                          color: Color(0xFF22C55E),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Masuk',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF111827),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
+                ),
         ],
       ),
     );
@@ -489,20 +608,46 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   )
-                : GridView.builder(
-                    shrinkWrap: true, // Penting agar bisa di-scroll di dalam SingleChildScrollView
-                    physics: const NeverScrollableScrollPhysics(), // Penting
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.72, // Menyesuaikan tinggi kartu
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    itemCount: _products.length,
-                    itemBuilder: (context, index) {
-                      final item = _products[index];
-                      return _buildProductCard(item);
-                    },
+                : Column(
+                    children: [
+                      GridView.builder(
+                        shrinkWrap: true, // Penting agar bisa di-scroll di dalam SingleChildScrollView
+                        physics: const NeverScrollableScrollPhysics(), // Penting
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.72, // Menyesuaikan tinggi kartu
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                        itemCount: _products.length > 2 ? 2 : _products.length,
+                        itemBuilder: (context, index) {
+                          final item = _products[index];
+                          return _buildProductCard(item);
+                        },
+                      ),
+                      if (_products.length > 2) ...[
+                        const SizedBox(height: 16),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () {
+                              final mainLayout = context.findAncestorStateOfType<MainLayoutState>();
+                              if (mainLayout != null) {
+                                mainLayout.setIndex(1); // Redirect ke tab Katalog
+                              }
+                            },
+                            icon: const Icon(Icons.arrow_forward, color: Color(0xFF22C55E), size: 16),
+                            label: Text(
+                              'Lihat Selengkapnya',
+                              style: GoogleFonts.poppins(
+                                color: const Color(0xFF22C55E),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
       ],
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../main/presentation/pages/main_layout.dart';
 import '../../../../core/service/database_helper.dart'; // Import Database SQLite kita
 
@@ -391,6 +392,12 @@ class _RegisterPageState extends State<RegisterPage> {
                                 'password': passwordRaw,
                                 'role': 'customer',
                               });
+
+                              // Simpan sesi ke SharedPreferences
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setBool('isLoggedIn', true);
+                              await prefs.setString('role', 'customer');
+                              await prefs.setString('email', emailAddress);
 
                               if (!context.mounted) return;
 

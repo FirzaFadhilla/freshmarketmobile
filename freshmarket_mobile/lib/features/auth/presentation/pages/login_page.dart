@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../main/presentation/pages/main_layout.dart';
 import '../../../catalog/presentation/pages/admin_product_page.dart'; // Import halaman admin baru
+import '../../../catalog/presentation/pages/cashier_page.dart'; // Import cashier page
 import 'register_page.dart';
 import '../../../../core/service/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -283,10 +284,10 @@ class _LoginPageState extends State<LoginPage> {
                               if (result.isNotEmpty) {
                                 final userRole = result.first['role'] as String;
 
-                                // --- TARUH DI SINI (BARIS 285) ---
                                  final prefs = await SharedPreferences.getInstance();
                                     await prefs.setBool('isLoggedIn', true);
                                       await prefs.setString('role', userRole);
+                                      await prefs.setString('email', emailAddress);
 
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -310,6 +311,13 @@ class _LoginPageState extends State<LoginPage> {
                                   Navigator.of(context).pushAndRemoveUntil(
                                     MaterialPageRoute(
                                       builder: (context) => const AdminProductPage(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                } else if (userRole == 'kasir') {
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (context) => const CashierPage(),
                                     ),
                                     (route) => false,
                                   );

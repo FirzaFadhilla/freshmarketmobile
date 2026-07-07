@@ -11,7 +11,7 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('freshmarket_v4.db');
+    _database = await _initDB('freshmarket_v6.db');
     return _database!;
   }
 
@@ -66,13 +66,37 @@ class DatabaseHelper {
       )
     ''');
 
+    // 4. Tabel Vouchers
     await db.execute('''
    CREATE TABLE vouchers (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      code TEXT NOT NULL,
      discount INTEGER NOT NULL
    )
- ''');
+  ''');
+
+    // 5. Tabel Transactions
+    await db.execute('''
+   CREATE TABLE transactions (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     total_price INTEGER NOT NULL,
+     discount INTEGER NOT NULL DEFAULT 0,
+     date TEXT NOT NULL
+   )
+  ''');
+
+    // 6. Tabel Orders
+    await db.execute('''
+   CREATE TABLE orders (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     user_email TEXT NOT NULL,
+     total_price INTEGER NOT NULL,
+     payment_method TEXT NOT NULL,
+     status TEXT NOT NULL,
+     date TEXT NOT NULL,
+     items_json TEXT NOT NULL
+   )
+  ''');
 
     // 1. Buat Akun Admin Bawaan
     await db.insert('users', {
@@ -86,6 +110,34 @@ class DatabaseHelper {
       'email': 'kasir@gmail.com',
       'password': 'kasir',
       'role': 'kasir'
+    });
+
+    // 3. Buat Akun Customer Bawaan
+    await db.insert('users', {
+      'email': 'user@gmail.com',
+      'password': 'user',
+      'role': 'customer'
+    });
+
+    // 4. Tambah Transaksi Bawaan untuk Demo Grafik Dashboard
+    final todayStr = DateTime.now().toIso8601String().split('T')[0];
+    final yesterdayStr = DateTime.now().subtract(const Duration(days: 1)).toIso8601String().split('T')[0];
+    final twoDaysAgoStr = DateTime.now().subtract(const Duration(days: 2)).toIso8601String().split('T')[0];
+
+    await db.insert('transactions', {
+      'total_price': 45000,
+      'discount': 5000,
+      'date': twoDaysAgoStr
+    });
+    await db.insert('transactions', {
+      'total_price': 120000,
+      'discount': 10000,
+      'date': yesterdayStr
+    });
+    await db.insert('transactions', {
+      'total_price': 85000,
+      'discount': 0,
+      'date': todayStr
     });
   }
 }

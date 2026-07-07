@@ -3,16 +3,25 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../home/presentation/pages/home_page.dart';
 import '../../../catalog/presentation/pages/catalog_page.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/service/database_helper.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
 
   @override
-  State<MainLayout> createState() => _MainLayoutState();
+  State<MainLayout> createState() => MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
+class MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
+
+  void setIndex(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
 
   late final List<Widget> _pages;
 
@@ -22,16 +31,7 @@ class _MainLayoutState extends State<MainLayout> {
     _pages = [
       const HomePage(),
       const CatalogPage(),
-      Center(
-        child: Text(
-          'Halaman Pesanan',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textSecondaryColor,
-          ),
-        ),
-      ),
+      const CustomerOrdersTab(),
       Center(
         child: Text(
           'Halaman Promo',
@@ -107,6 +107,306 @@ class _MainLayoutState extends State<MainLayout> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class CustomerOrdersTab extends StatefulWidget {
+  const CustomerOrdersTab({super.key});
+
+  @override
+  State<CustomerOrdersTab> createState() => _CustomerOrdersTabState();
+}
+
+class _CustomerOrdersTabState extends State<CustomerOrdersTab> {
+  List<Map<String, dynamic>> _orders = [];
+  bool _isLoading = true;
+  String _userEmail = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    final prefs = await SharedPreferences.getInstance();
+    _userEmail = prefs.getString('email') ?? '';
+    
+    if (_userEmail.isEmpty) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final data = await db.query(
+        'orders',
+        where: 'user_email = ?',
+        whereArgs: [_userEmail],
+        orderBy: 'id DESC',
+      );
+      if (mounted) {
+        setState(() {
+          _orders = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _completeOrder(int orderId) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.update(
+        'orders',
+        {'status': 'Selesai'},
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pesanan berhasil diselesaikan! Terima kasih sudah berbelanja.'),
+            backgroundColor: Color(0xFF22C55E),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      _loadOrders();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyelesaikan pesanan: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'Menunggu Respon':
+        return Colors.orange;
+      case 'Diproses':
+        return Colors.blue;
+      case 'Dikirim':
+        return Colors.purple;
+      case 'Selesai':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF22C55E)));
+    }
+
+    if (_orders.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.receipt_long_rounded, size: 64, color: Color(0xFF94A3B8)),
+              const SizedBox(height: 16),
+              Text(
+                'Belum Ada Pesanan',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Semua riwayat pesanan Anda akan muncul di halaman ini.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: Text(
+          'Pesanan Saya',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: const Color(0xFF0F172A),
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        shape: const Border(
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        ),
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _orders.length,
+        itemBuilder: (context, index) {
+          final order = _orders[index];
+          final orderId = order['id'] as int;
+          final status = order['status'].toString();
+          final totalPrice = order['total_price'] as int;
+          final date = order['date'].toString();
+          final paymentMethod = order['payment_method'].toString();
+          
+          List<dynamic> items = [];
+          try {
+            items = jsonDecode(order['items_json'].toString());
+          } catch (_) {}
+
+          return Card(
+            elevation: 0,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+            ),
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'ID Pesanan: #$orderId',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(status).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status,
+                          style: GoogleFonts.poppins(
+                            color: _getStatusColor(status),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tanggal: $date • $paymentMethod',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                  const Divider(height: 20, thickness: 1, color: Color(0xFFF1F5F9)),
+                  
+                  // Items purchased
+                  ...items.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${item['name']} x${item['quantity']}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: const Color(0xFF334155),
+                            ),
+                          ),
+                          Text(
+                            'Rp ${item['price'] * item['quantity']}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const Divider(height: 20, thickness: 1, color: Color(0xFFF1F5F9)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total Pembayaran:',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        'Rp $totalPrice',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: const Color(0xFF22C55E),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (status == 'Dikirim') ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 40,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                        label: Text(
+                          'Pesanan Selesai / Diterima',
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF22C55E),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _completeOrder(orderId),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

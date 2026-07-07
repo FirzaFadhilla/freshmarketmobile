@@ -4,6 +4,7 @@ import 'core/theme/app_theme.dart';
 import 'features/main/presentation/pages/main_layout.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/catalog/presentation/pages/admin_product_page.dart';
+import 'features/catalog/presentation/pages/cashier_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,8 @@ void main() async {
   if (isLoggedIn) {
     if (role == 'admin') {
       initialPage = const AdminProductPage();
+    } else if (role == 'kasir') {
+      initialPage = const CashierPage();
     } else {
       initialPage = const MainLayout();
     }
