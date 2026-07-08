@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../main/presentation/pages/main_layout.dart';
 import '../../../../core/service/database_helper.dart';
-import '../../../cart/presentation/pages/cart_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -141,6 +140,53 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _showLoginRequiredDialog(String action) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Perlu Masuk Akun',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Silakan masuk ke akun Anda terlebih dahulu untuk dapat $action.',
+            style: GoogleFonts.poppins(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Batal',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                ).then((_) => _loadLoginSession()); // Refresh login session when coming back
+              },
+              child: Text(
+                'Masuk',
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF22C55E),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _timer.cancel();
@@ -178,10 +224,7 @@ class _HomePageState extends State<HomePage> {
                     
                     const SizedBox(height: 36),
                     
-                    // 2. SEKSI TUJUAN UTAMA KAMI (Wrapped in a Card, Title Centered)
-                    _buildOurGoalCardSection(),
-                    
-                    const SizedBox(height: 36),
+
                     
                     // 3. SEKSI CARA BELANJA
                     _buildHowToShopSection(),
@@ -251,57 +294,40 @@ class _HomePageState extends State<HomePage> {
           
           // Pojok Atas Kanan: Button Login / Profil Orang
           _isLoggedIn
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF22C55E), size: 22),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const CartPage()),
-                        ).then((_) => _loadProducts());
-                      },
-                    ),
-                    const SizedBox(width: 16),
-                    GestureDetector(
-                      onTap: _showLogoutDialog,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _userEmail.contains('@')
-                                ? _userEmail.split('@')[0]
-                                : _userEmail,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF111827),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F5E9), // soft green background
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFF4ADE80), // light green border
-                                width: 1.5,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.person_rounded,
-                              color: Color(0xFF22C55E),
-                              size: 18,
-                            ),
-                          ),
-                        ],
+              ? GestureDetector(
+                  onTap: _showLogoutDialog,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _userEmail.contains('@')
+                            ? _userEmail.split('@')[0]
+                            : _userEmail,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF111827),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9), // soft green background
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF4ADE80), // light green border
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          color: Color(0xFF22C55E),
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ),
                 )
               : GestureDetector(
                   onTap: () {
@@ -705,7 +731,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 4),
           // Harga Produk
           Text(
-            'Rp ${item['price']}',
+            'Rp ${item['price']} / ${item['unit'] ?? 'kg'}',
             style: GoogleFonts.poppins(
               color: const Color(0xFF22C55E),
               fontWeight: FontWeight.w600,
@@ -719,12 +745,16 @@ class _HomePageState extends State<HomePage> {
             height: 36,
             child: ElevatedButton(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Dimasukkan ke keranjang!'),
-                    backgroundColor: Color(0xFF22C55E),
-                  ),
-                );
+                if (!_isLoggedIn) {
+                  _showLoginRequiredDialog('membeli produk');
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Dimasukkan ke keranjang!'),
+                      backgroundColor: Color(0xFF22C55E),
+                    ),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF22C55E),
@@ -748,83 +778,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildOurGoalCardSection() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Judul Seksi (Centered)
-          Center(
-            child: RichText(
-              text: TextSpan(
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF111827),
-                ),
-                children: const [
-                  TextSpan(text: 'Tujuan '),
-                  TextSpan(
-                    text: 'Utama Kami',
-                    style: TextStyle(color: Color(0xFF22C55E)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Daftar Poin Belanja (3 baris poin deskripsi statis)
-          _buildGoalItem('Menyediakan buah-buahan lokal segar pilihan langsung dari petani terbaik di Indonesia.'),
-          const SizedBox(height: 14),
-          _buildGoalItem('Menjaga standar kualitas dan higienitas pangan yang tinggi dari pemetikan hingga pengantaran.'),
-          const SizedBox(height: 14),
-          _buildGoalItem('Mempermudah akses masyarakat untuk hidup sehat dengan harga buah yang terjangkau.'),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildGoalItem(String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Green check circle icon (anti-kaku daripada menggunakan bullet list)
-        const Icon(
-          Icons.check_circle_rounded,
-          color: Color(0xFF22C55E),
-          size: 20,
-        ),
-        const SizedBox(width: 12),
-        // Deskripsi teks
-        Expanded(
-          child: Text(
-            text,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: const Color(0xFF4B5563),
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildHowToShopSection() {
     return Column(

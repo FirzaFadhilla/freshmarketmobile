@@ -22,15 +22,32 @@ class DatabaseHelper {
       return await factory.openDatabase(
         filePath,
         options: OpenDatabaseOptions(
-          version: 1,
+          version: 2,
           onCreate: _createDB,
+          onUpgrade: _upgradeDB,
         ),
       );
     } else {
       // 📱 KONFIGURASI ASLI UNTUK HP (ANDROID/IOS)
       final dbPath = await getDatabasesPath();
       final path = join(dbPath, filePath);
-      return await openDatabase(path, version: 1, onCreate: _createDB);
+      return await openDatabase(
+        path,
+        version: 2,
+        onCreate: _createDB,
+        onUpgrade: _upgradeDB,
+      );
+    }
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      try {
+        await db.execute("ALTER TABLE products ADD COLUMN type TEXT NOT NULL DEFAULT 'Lokal'");
+      } catch (_) {}
+      try {
+        await db.execute("ALTER TABLE products ADD COLUMN unit TEXT NOT NULL DEFAULT 'kg'");
+      } catch (_) {}
     }
   }
 
@@ -52,7 +69,9 @@ class DatabaseHelper {
      name TEXT NOT NULL,
      price INTEGER NOT NULL,
      stock INTEGER NOT NULL,
-     image TEXT NOT NULL 
+     image TEXT NOT NULL,
+     type TEXT NOT NULL DEFAULT 'Lokal',
+     unit TEXT NOT NULL DEFAULT 'kg'
    )
  ''');
 

@@ -6,6 +6,8 @@ import '../../../catalog/presentation/pages/catalog_page.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/service/database_helper.dart';
+import '../../../auth/presentation/pages/login_page.dart';
+import 'package:flutter/services.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -32,16 +34,7 @@ class MainLayoutState extends State<MainLayout> {
       const HomePage(),
       const CatalogPage(),
       const CustomerOrdersTab(),
-      Center(
-        child: Text(
-          'Halaman Promo',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textSecondaryColor,
-          ),
-        ),
-      ),
+      const CustomerVouchersTab(),
     ];
   }
 
@@ -101,9 +94,9 @@ class MainLayoutState extends State<MainLayout> {
               label: 'Pesanan',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.local_offer_outlined),
-              activeIcon: Icon(Icons.local_offer_rounded),
-              label: 'Promo',
+              icon: Icon(Icons.confirmation_num_outlined),
+              activeIcon: Icon(Icons.confirmation_num_rounded),
+              label: 'Voucher',
             ),
           ],
         ),
@@ -123,6 +116,7 @@ class _CustomerOrdersTabState extends State<CustomerOrdersTab> {
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
   String _userEmail = '';
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
@@ -134,9 +128,10 @@ class _CustomerOrdersTabState extends State<CustomerOrdersTab> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     final prefs = await SharedPreferences.getInstance();
+    _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
     _userEmail = prefs.getString('email') ?? '';
     
-    if (_userEmail.isEmpty) {
+    if (!_isLoggedIn || _userEmail.isEmpty) {
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -214,6 +209,91 @@ class _CustomerOrdersTabState extends State<CustomerOrdersTab> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF22C55E)));
+    }
+
+    if (!_isLoggedIn) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: Text(
+            'Pesanan Saya',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF0F172A),
+          elevation: 0,
+          shape: const Border(
+            bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE8F5E9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_outlined,
+                    size: 64,
+                    color: Color(0xFF22C55E),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Masuk ke Akun Anda',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Silakan masuk terlebih dahulu untuk melihat daftar pesanan Anda.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: 200,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LoginPage()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF22C55E),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text(
+                      'Masuk Sekarang',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      );
     }
 
     if (_orders.isEmpty) {
@@ -341,7 +421,7 @@ class _CustomerOrdersTabState extends State<CustomerOrdersTab> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '${item['name']} x${item['quantity']}',
+                            '${item['name']} x${item['quantity']} (${item['unit'] ?? 'kg'})',
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               color: const Color(0xFF334155),
@@ -410,4 +490,284 @@ class _CustomerOrdersTabState extends State<CustomerOrdersTab> {
       ),
     );
   }
+}
+
+class CustomerVouchersTab extends StatefulWidget {
+  const CustomerVouchersTab({super.key});
+
+  @override
+  State<CustomerVouchersTab> createState() => _CustomerVouchersTabState();
+}
+
+class _CustomerVouchersTabState extends State<CustomerVouchersTab> {
+  List<Map<String, dynamic>> _vouchers = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVouchers();
+  }
+
+  Future<void> _loadVouchers() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final data = await db.query('vouchers', orderBy: 'id DESC');
+      if (mounted) {
+        setState(() {
+          _vouchers = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF22C55E)));
+    }
+
+    if (_vouchers.isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: Text(
+            'Voucher Belanja',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF0F172A),
+          elevation: 0,
+          shape: const Border(
+            bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.confirmation_num_outlined, size: 64, color: Color(0xFF94A3B8)),
+                const SizedBox(height: 16),
+                Text(
+                  'Belum Ada Voucher',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Nantikan voucher potongan harga menarik dari FreshMarket.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: Text(
+          'Voucher Belanja',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: const Color(0xFF0F172A),
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        shape: const Border(
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        ),
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadVouchers,
+        color: const Color(0xFF22C55E),
+        child: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: _vouchers.length,
+          itemBuilder: (context, index) {
+            final voucher = _vouchers[index];
+            final code = voucher['code'].toString();
+            final discount = voucher['discount'] as int;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              height: 110,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      // Left Part (Discount Info & Icon)
+                      Container(
+                        width: 100,
+                        color: const Color(0xFFE8F5E9),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.confirmation_num_rounded,
+                              color: Color(0xFF22C55E),
+                              size: 28,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'POTONGAN',
+                              style: GoogleFonts.poppins(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF64748B),
+                              ),
+                            ),
+                            Text(
+                              'Rp $discount',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF22C55E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Dotted Divider Line
+                      CustomPaint(
+                        size: const Size(1, double.infinity),
+                        painter: DottedLinePainter(),
+                      ),
+                      // Right Part (Voucher Details)
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Potongan Belanja Rp $discount',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Salin kode di bawah untuk digunakan saat pembayaran.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+                                    ),
+                                    child: Text(
+                                      code,
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Clipboard.setData(ClipboardData(text: code));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Kode voucher "$code" disalin!'),
+                                          backgroundColor: const Color(0xFF22C55E),
+                                          duration: const Duration(seconds: 1),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    },
+                                    style: TextButton.styleFrom(
+                                      minimumSize: Size.zero,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      'SALIN KODE',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF22C55E),
+                                      ),
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class DottedLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFE2E8F0)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    
+    double dashHeight = 4, dashSpace = 4, startY = 0;
+    while (startY < size.height) {
+      canvas.drawLine(Offset(0, startY), Offset(0, startY + dashHeight), paint);
+      startY += dashHeight + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

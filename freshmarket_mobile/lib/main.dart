@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'features/main/presentation/pages/main_layout.dart';
-import 'features/auth/presentation/pages/login_page.dart';
 import 'features/catalog/presentation/pages/admin_product_page.dart';
 import 'features/catalog/presentation/pages/cashier_page.dart';
 
@@ -15,7 +14,7 @@ void main() async {
   final role = prefs.getString('role') ?? 'customer';
 
   // Tentukan halaman pertama
-  Widget initialPage = const LoginPage();
+  Widget initialPage = const MainLayout();
   if (isLoggedIn) {
     if (role == 'admin') {
       initialPage = const AdminProductPage();

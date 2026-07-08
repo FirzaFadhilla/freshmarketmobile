@@ -273,7 +273,7 @@ class _CashierPageState extends State<CashierPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '${item['name']} x${item['quantity']}',
+                          '${item['name']} x${item['quantity']} (${item['unit'] ?? 'kg'})',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: const Color(0xFF334155),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/service/database_helper.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 
 class CatalogPage extends StatefulWidget {
   const CatalogPage({super.key});
@@ -16,6 +18,7 @@ class _CatalogPageState extends State<CatalogPage> {
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedCategory = 'Semua';
+  bool _isLoggedIn = false;
 
   final List<String> _categories = ['Semua', 'Buah Lokal', 'Buah Impor'];
 
@@ -23,6 +26,63 @@ class _CatalogPageState extends State<CatalogPage> {
   void initState() {
     super.initState();
     _loadProducts();
+    _loadLoginSession();
+  }
+
+  Future<void> _loadLoginSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+      });
+    }
+  }
+
+  void _showLoginRequiredDialog(String action) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Perlu Masuk Akun',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Silakan masuk ke akun Anda terlebih dahulu untuk dapat $action.',
+            style: GoogleFonts.poppins(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Batal',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                ).then((_) => _loadLoginSession()); // Refresh login session when coming back
+              },
+              child: Text(
+                'Masuk',
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF22C55E),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _loadProducts() async {
@@ -46,19 +106,12 @@ class _CatalogPageState extends State<CatalogPage> {
   void _applyFilters() {
     List<Map<String, dynamic>> temp = List.from(_allProducts);
 
-    // Filter berdasarkan kategori (mock keyword matching)
+    // Filter berdasarkan kategori (menggunakan kolom database 'type')
     if (_selectedCategory != 'Semua') {
-      final importKeywords = ['impor', 'import', 'fuji', 'sunkist', 'pear', 'globe', 'pir', 'lemon', 'australia', 'amerika', 'usa'];
       if (_selectedCategory == 'Buah Lokal') {
-        temp = temp.where((p) {
-          final name = p['name'].toString().toLowerCase();
-          return !importKeywords.any((kw) => name.contains(kw));
-        }).toList();
+        temp = temp.where((p) => (p['type']?.toString().toLowerCase() ?? 'lokal') == 'lokal').toList();
       } else if (_selectedCategory == 'Buah Impor') {
-        temp = temp.where((p) {
-          final name = p['name'].toString().toLowerCase();
-          return importKeywords.any((kw) => name.contains(kw));
-        }).toList();
+        temp = temp.where((p) => (p['type']?.toString().toLowerCase() ?? 'lokal') == 'impor').toList();
       }
     }
 
@@ -95,10 +148,14 @@ class _CatalogPageState extends State<CatalogPage> {
             icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF22C55E)),
             tooltip: 'Keranjang Belanja',
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const CartPage()),
-              ).then((_) => _loadProducts());
+              if (!_isLoggedIn) {
+                _showLoginRequiredDialog('melihat keranjang belanja');
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CartPage()),
+                ).then((_) => _loadProducts());
+              }
             },
           ),
         ],
@@ -256,6 +313,10 @@ class _CatalogPageState extends State<CatalogPage> {
   }
 
   Future<void> _addToCart(int productId, String name) async {
+    if (!_isLoggedIn) {
+      _showLoginRequiredDialog('menambahkan produk ke keranjang');
+      return;
+    }
     try {
       final db = await DatabaseHelper.instance.database;
       final existing = await db.query(
@@ -464,7 +525,7 @@ class _CatalogPageState extends State<CatalogPage> {
                           // Actual price
                           // Current Promo Price
                           Text(
-                            'Rp $price',
+                            'Rp $price / ${item['unit'] ?? 'kg'}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(

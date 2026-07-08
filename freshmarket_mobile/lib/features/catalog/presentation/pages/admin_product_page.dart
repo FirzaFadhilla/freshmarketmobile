@@ -136,7 +136,7 @@ class _AdminProductPageState extends State<AdminProductPage> {
     }
   }
 
-  Future<void> _addProduct() async {
+  Future<void> _addProduct(String type, String unit) async {
     final db = await DatabaseHelper.instance.database;
     await db.insert('products', {
       'name': _nameController.text.trim(),
@@ -145,6 +145,8 @@ class _AdminProductPageState extends State<AdminProductPage> {
       'image': _imageController.text.trim().isNotEmpty
           ? _imageController.text.trim()
           : 'https://placehold.co/400x400.png?text=No+Image',
+      'type': type,
+      'unit': unit,
     });
     _nameController.clear();
     _priceController.clear();
@@ -153,7 +155,7 @@ class _AdminProductPageState extends State<AdminProductPage> {
     _refreshData();
   }
 
-  Future<void> _updateProduct(int id) async {
+  Future<void> _updateProduct(int id, String type, String unit) async {
     final db = await DatabaseHelper.instance.database;
     await db.update('products', {
       'name': _nameController.text.trim(),
@@ -162,6 +164,8 @@ class _AdminProductPageState extends State<AdminProductPage> {
       'image': _imageController.text.trim().isNotEmpty
           ? _imageController.text.trim()
           : 'https://placehold.co/400x400.png?text=No+Image',
+      'type': type,
+      'unit': unit,
     }, where: 'id = ?', whereArgs: [id]);
     _nameController.clear();
     _priceController.clear();
@@ -282,8 +286,13 @@ class _AdminProductPageState extends State<AdminProductPage> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
+        String selectedType = isEditing ? (product['type'] ?? 'Lokal') : 'Lokal';
+        String selectedUnit = isEditing ? (product['unit'] ?? 'kg') : 'kg';
         final productFormKey = GlobalKey<FormState>();
-        return AlertDialog(
+        
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           title: Text(
             isEditing ? 'EDIT PRODUK' : 'TAMBAH PRODUK',
@@ -411,6 +420,64 @@ class _AdminProductPageState extends State<AdminProductPage> {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedType,
+                    decoration: InputDecoration(
+                      labelText: 'Tipe Buah',
+                      prefixIcon: const Icon(Icons.category_outlined, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Lokal', child: Text('Buah Lokal')),
+                      DropdownMenuItem(value: 'Impor', child: Text('Buah Impor')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setStateDialog(() {
+                          selectedType = value;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedUnit,
+                    decoration: InputDecoration(
+                      labelText: 'Tipe Penjualan (Satuan)',
+                      prefixIcon: const Icon(Icons.scale_outlined, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'kg', child: Text('Per Kg')),
+                      DropdownMenuItem(value: 'buah', child: Text('Per Buah / Biji')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setStateDialog(() {
+                          selectedUnit = value;
+                        });
+                      }
+                    },
+                  ),
                 ],
               ),
             ),
@@ -436,9 +503,9 @@ class _AdminProductPageState extends State<AdminProductPage> {
               onPressed: () {
                 if (productFormKey.currentState!.validate()) {
                   if (isEditing) {
-                    _updateProduct(product['id']);
+                    _updateProduct(product['id'], selectedType, selectedUnit);
                   } else {
-                    _addProduct();
+                    _addProduct(selectedType, selectedUnit);
                   }
                   Navigator.pop(context);
                 }
@@ -449,6 +516,8 @@ class _AdminProductPageState extends State<AdminProductPage> {
               ),
             ),
           ],
+        );
+          },
         );
       },
     );
@@ -1206,7 +1275,7 @@ class _AdminProductPageState extends State<AdminProductPage> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Rp ${item['price']}',
+                        'Rp ${item['price']} / ${item['unit'] ?? 'kg'}',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -1215,7 +1284,7 @@ class _AdminProductPageState extends State<AdminProductPage> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Stok: ${item['stock']} unit',
+                        'Tipe: ${item['type'] ?? 'Lokal'} • Stok: ${item['stock']} unit',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,

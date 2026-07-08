@@ -24,7 +24,6 @@ class _CartPageState extends State<CartPage> {
     'Transfer Bank',
     'Gopay / E-Wallet',
     'OVO / Dana',
-    'COD (Bayar di Tempat)',
   ];
 
   @override
@@ -52,7 +51,8 @@ class _CartPageState extends State<CartPage> {
       // Join cart items with product details
       final data = await db.rawQuery('''
         SELECT cart.id as cart_id, cart.quantity, products.id as product_id, 
-               products.name, products.price, products.stock, products.image 
+               products.name, products.price, products.stock, products.image,
+               products.unit
         FROM cart 
         INNER JOIN products ON cart.product_id = products.id
       ''');
@@ -213,6 +213,7 @@ class _CartPageState extends State<CartPage> {
           'price': e['price'],
           'quantity': e['quantity'],
           'image': e['image'],
+          'unit': e['unit'] ?? 'kg',
         }).toList();
         final itemsJson = jsonEncode(itemsList);
 
@@ -412,7 +413,7 @@ class _CartPageState extends State<CartPage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Rp $price',
+                              'Rp $price / ${item['unit'] ?? 'kg'}',
                               style: GoogleFonts.poppins(
                                 color: const Color(0xFF22C55E),
                                 fontWeight: FontWeight.w600,
