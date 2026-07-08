@@ -620,7 +620,6 @@ class _CustomerVouchersTabState extends State<CustomerVouchersTab> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  color: Colors.white,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),

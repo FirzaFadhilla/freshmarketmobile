@@ -14,7 +14,6 @@ class CashierPage extends StatefulWidget {
 
 class _CashierPageState extends State<CashierPage> {
   String _cashierEmail = 'kasir@gmail.com';
-  String _currentView = 'dashboard'; // 'dashboard' atau 'orders'
   List<Map<String, dynamic>> _orders = [];
   bool _isLoadingOrders = true;
 
@@ -94,51 +93,7 @@ class _CashierPageState extends State<CashierPage> {
     }
   }
 
-  Widget _buildDashboardView() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: const Icon(
-                Icons.point_of_sale_rounded,
-                color: Color(0xFF10B981),
-                size: 48,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'DASHBOARD KASIR',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Halaman ringkasan transaksi, performa penjualan, dan aktivitas kasir.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: const Color(0xFF64748B),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildOrdersView() {
     if (_isLoadingOrders) {
@@ -409,21 +364,16 @@ class _CashierPageState extends State<CashierPage> {
   }
 
   Widget _buildBody() {
-    if (_currentView == 'dashboard') {
-      return _buildDashboardView();
-    } else {
-      return _buildOrdersView();
-    }
+    return _buildOrdersView();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDashboard = _currentView == 'dashboard';
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
-          isDashboard ? 'DASHBOARD KASIR' : 'KELOLA PESANAN',
+          'KELOLA PESANAN',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             fontSize: 15,
@@ -464,48 +414,24 @@ class _CashierPageState extends State<CashierPage> {
             ),
             const SizedBox(height: 12),
             ListTile(
-              leading: Icon(
-                Icons.point_of_sale_rounded,
-                color: isDashboard ? const Color(0xFF10B981) : const Color(0xFF64748B),
-              ),
-              title: Text(
-                'Dashboard Kasir',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: isDashboard ? const Color(0xFF10B981) : const Color(0xFF334155),
-                ),
-              ),
-              selected: isDashboard,
-              selectedTileColor: const Color(0xFFF1F5F9),
-              onTap: () {
-                setState(() {
-                  _currentView = 'dashboard';
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(
+              leading: const Icon(
                 Icons.receipt_long_rounded,
-                color: !isDashboard ? const Color(0xFF10B981) : const Color(0xFF64748B),
+                color: Color(0xFF10B981),
               ),
               title: Text(
                 'Kelola Pesanan',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
-                  color: !isDashboard ? const Color(0xFF10B981) : const Color(0xFF334155),
+                  color: const Color(0xFF10B981),
                 ),
               ),
-              selected: !isDashboard,
+              selected: true,
               selectedTileColor: const Color(0xFFF1F5F9),
               onTap: () {
-                setState(() {
-                  _currentView = 'orders';
-                });
-                _loadOrders();
-                Navigator.pop(context);
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
               },
             ),
             const Divider(height: 24, thickness: 1, color: Color(0xFFE2E8F0)),
@@ -517,7 +443,9 @@ class _CashierPageState extends State<CashierPage> {
                 style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.redAccent),
               ),
               onTap: () {
-                Navigator.pop(context);
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
                 _logout();
               },
             ),

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../main/presentation/pages/main_layout.dart';
 import '../../../../core/service/database_helper.dart'; // Import Database SQLite kita
+import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -38,7 +39,16 @@ class _RegisterPageState extends State<RegisterPage> {
         elevation: 0,
         leadingWidth: 120,
         leading: TextButton.icon(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (route) => false,
+              );
+            }
+          },
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             color: Color(0xFF111827),

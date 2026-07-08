@@ -36,7 +36,16 @@ class _LoginPageState extends State<LoginPage> {
         elevation: 0,
         leadingWidth: 120,
         leading: TextButton.icon(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const MainLayout()),
+                (route) => false,
+              );
+            }
+          },
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             color: Color(0xFF111827),

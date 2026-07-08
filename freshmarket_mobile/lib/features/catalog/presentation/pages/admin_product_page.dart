@@ -17,18 +17,7 @@ class _AdminProductPageState extends State<AdminProductPage> {
   List<Map<String, dynamic>> _cashiers = [];
   bool _isLoading = true;
   String _adminEmail = 'admin@gmail.com';
-  String _currentView = 'dashboard'; // 'dashboard', 'products', 'vouchers', atau 'cashiers'
-  int _totalPemasukan = 0;
-  int _totalTransaksi = 0;
-  List<Map<String, dynamic>> _weeklySales = [
-    {'day': 'Sen', 'sales': 0},
-    {'day': 'Sel', 'sales': 0},
-    {'day': 'Rab', 'sales': 0},
-    {'day': 'Kam', 'sales': 0},
-    {'day': 'Jum', 'sales': 0},
-    {'day': 'Sab', 'sales': 0},
-    {'day': 'Min', 'sales': 0},
-  ];
+  String _currentView = 'products'; // 'products', 'vouchers', atau 'cashiers'
 
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
@@ -79,8 +68,6 @@ class _AdminProductPageState extends State<AdminProductPage> {
     final voucherData = await db.query('vouchers', orderBy: 'id DESC');
     final cashierData = await db.query('users', where: 'role = ?', whereArgs: ['kasir'], orderBy: 'id DESC');
     
-    await _loadDashboardMetrics();
-    
     if (mounted) {
       setState(() {
         _products = productData;
@@ -88,51 +75,6 @@ class _AdminProductPageState extends State<AdminProductPage> {
         _cashiers = cashierData;
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _loadDashboardMetrics() async {
-    try {
-      final db = await DatabaseHelper.instance.database;
-      
-      // 1. Hitung total pemasukan
-      final sumResult = await db.rawQuery('SELECT SUM(total_price) as total FROM transactions');
-      final sum = sumResult.first['total'];
-      
-      // 2. Hitung total transaksi
-      final countResult = await db.rawQuery('SELECT COUNT(id) as count FROM transactions');
-      final count = countResult.first['count'];
-      
-      // 3. Ambil data penjualan 7 hari terakhir untuk grafik
-      final daysOfWeek = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-      final List<Map<String, dynamic>> last7Days = [];
-      
-      for (int i = 6; i >= 0; i--) {
-        final date = DateTime.now().subtract(Duration(days: i));
-        final dateStr = date.toIso8601String().split('T')[0];
-        final dayName = daysOfWeek[date.weekday % 7];
-        
-        final dailySumResult = await db.rawQuery(
-          'SELECT SUM(total_price) as total FROM transactions WHERE date = ?',
-          [dateStr]
-        );
-        final dailySum = dailySumResult.first['total'] as int? ?? 0;
-        
-        last7Days.add({
-          'day': dayName,
-          'sales': dailySum,
-        });
-      }
-
-      if (mounted) {
-        setState(() {
-          _totalPemasukan = sum as int? ?? 0;
-          _totalTransaksi = count as int? ?? 0;
-          _weeklySales = last7Days;
-        });
-      }
-    } catch (e) {
-      // safe fallback
     }
   }
 
@@ -894,328 +836,7 @@ class _AdminProductPageState extends State<AdminProductPage> {
     );
   }
 
-  Widget _buildDashboardView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Welcome text
-          Text(
-            'Selamat Datang Kembali,',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF64748B),
-            ),
-          ),
-          Text(
-            'Administrator',
-            style: GoogleFonts.poppins(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 24),
 
-          // Grid of Summary Cards
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.4,
-            children: [
-              _buildSummaryCard(
-                'TOTAL PEMASUKAN',
-                'Rp $_totalPemasukan',
-                Icons.monetization_on_outlined,
-                const Color(0xFF10B981),
-                'Berdasarkan database',
-              ),
-              _buildSummaryCard(
-                'TRANSAKSI SELESAI',
-                '$_totalTransaksi Transaksi',
-                Icons.shopping_bag_outlined,
-                const Color(0xFF3B82F6),
-                'Update otomatis',
-              ),
-              _buildSummaryCard(
-                'PRODUK AKTIF',
-                '${_products.length} Item',
-                Icons.inventory_2_outlined,
-                const Color(0xFFF59E0B),
-                'Tersedia di katalog',
-              ),
-              _buildSummaryCard(
-                'TOTAL KASIR',
-                '${_cashiers.length} Akun',
-                Icons.people_alt_outlined,
-                const Color(0xFF8B5CF6),
-                'Kasir aktif terdaftar',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Weekly sales chart
-          _buildWeeklySalesChart(),
-          const SizedBox(height: 24),
-
-          // Recent Activity Card
-          _buildRecentActivityCard(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-    String subtext,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    color: const Color(0xFF64748B),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Icon(icon, color: color, size: 20),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtext,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF94A3B8),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWeeklySalesChart() {
-    double maxSales = _weeklySales
-        .map((e) => double.tryParse(e['sales'].toString()) ?? 0.0)
-        .reduce((value, element) => value > element ? value : element);
-    if (maxSales < 10000.0) {
-      maxSales = 10000.0;
-    }
-
-    String formatCurrency(double value) {
-      if (value <= 0) return '0';
-      if (value >= 1000000) {
-        return 'Rp ${(value / 1000000).toStringAsFixed(1)}jt';
-      } else if (value >= 1000) {
-        return 'Rp ${(value / 1000).toStringAsFixed(0)}rb';
-      }
-      return 'Rp ${value.toStringAsFixed(0)}';
-    }
-
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'GRAFIK PENJUALAN MINGGUAN',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 200,
-              child: Row(
-                children: [
-                  // Y-Axis Labels
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(formatCurrency(maxSales), style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF94A3B8))),
-                      Text(formatCurrency(maxSales * 0.66), style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF94A3B8))),
-                      Text(formatCurrency(maxSales * 0.33), style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF94A3B8))),
-                      Text('0', style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF94A3B8))),
-                    ],
-                  ),
-                  const SizedBox(width: 12),
-                  // Vertical Grid & Bars
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: _weeklySales.map((data) {
-                        final salesVal = double.tryParse(data['sales'].toString()) ?? 0.0;
-                        final ratio = salesVal / maxSales;
-                        final barHeight = ratio * 160.0;
-
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Container(
-                              width: 24,
-                              height: barHeight > 0 && barHeight < 4 ? 4 : barHeight,
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [Color(0xFF10B981), Color(0xFF059669)],
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                ),
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              data['day'].toString(),
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentActivityCard() {
-    final activities = [
-      {'text': 'Voucher baru DISKON20 ditambahkan oleh Admin.', 'time': '10 menit yang lalu'},
-      {'text': 'Produk Apel Fuji diperbarui oleh Admin.', 'time': '45 menit yang lalu'},
-      {'text': 'Kasir kasir@gmail.com masuk ke sistem.', 'time': '1 jam yang lalu'},
-      {'text': 'Transaksi penjualan #1084 diselesaikan oleh Kasir.', 'time': '2 jam yang lalu'},
-    ];
-
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'AKTIVITAS SISTEM TERKINI',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: activities.length,
-              separatorBuilder: (context, index) => const Divider(height: 24, thickness: 1, color: Color(0xFFF1F5F9)),
-              itemBuilder: (context, index) {
-                final activity = activities[index];
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF10B981),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            activity['text']!,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF334155),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            activity['time']!,
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              color: const Color(0xFF94A3B8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildProductsView() {
     if (_products.isEmpty) {
@@ -1501,13 +1122,11 @@ class _AdminProductPageState extends State<AdminProductPage> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
-          _currentView == 'dashboard'
-              ? 'DASHBOARD ANALITIK'
-              : _currentView == 'products'
-                  ? 'KELOLA PRODUK'
-                  : _currentView == 'vouchers'
-                      ? 'KELOLA VOUCHER'
-                      : 'KELOLA KASIR',
+          _currentView == 'products'
+              ? 'KELOLA PRODUK'
+              : _currentView == 'vouchers'
+                  ? 'KELOLA VOUCHER'
+                  : 'KELOLA KASIR',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             fontSize: 15,
@@ -1547,28 +1166,7 @@ class _AdminProductPageState extends State<AdminProductPage> {
               ),
             ),
             const SizedBox(height: 12),
-            ListTile(
-              leading: Icon(
-                Icons.analytics_outlined,
-                color: _currentView == 'dashboard' ? const Color(0xFF10B981) : const Color(0xFF64748B),
-              ),
-              title: Text(
-                'Dashboard Ringkasan',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: _currentView == 'dashboard' ? const Color(0xFF10B981) : const Color(0xFF334155),
-                ),
-              ),
-              selected: _currentView == 'dashboard',
-              selectedTileColor: const Color(0xFFF1F5F9),
-              onTap: () {
-                setState(() {
-                  _currentView = 'dashboard';
-                });
-                Navigator.pop(context);
-              },
-            ),
+
             ListTile(
               leading: Icon(
                 Icons.inventory_2_outlined,
@@ -1588,7 +1186,9 @@ class _AdminProductPageState extends State<AdminProductPage> {
                 setState(() {
                   _currentView = 'products';
                 });
-                Navigator.pop(context);
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
               },
             ),
             ListTile(
@@ -1610,7 +1210,9 @@ class _AdminProductPageState extends State<AdminProductPage> {
                 setState(() {
                   _currentView = 'vouchers';
                 });
-                Navigator.pop(context);
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
               },
             ),
             ListTile(
@@ -1632,7 +1234,9 @@ class _AdminProductPageState extends State<AdminProductPage> {
                 setState(() {
                   _currentView = 'cashiers';
                 });
-                Navigator.pop(context);
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
               },
             ),
             const Divider(height: 24, thickness: 1, color: Color(0xFFE2E8F0)),
@@ -1644,7 +1248,9 @@ class _AdminProductPageState extends State<AdminProductPage> {
                 style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.redAccent),
               ),
               onTap: () {
-                Navigator.pop(context);
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
                 _logout();
               },
             ),
@@ -1655,39 +1261,35 @@ class _AdminProductPageState extends State<AdminProductPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)))
           : _buildBody(),
-      floatingActionButton: _currentView == 'dashboard'
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () {
-                if (_currentView == 'products') {
-                  _showProductForm();
-                } else if (_currentView == 'vouchers') {
-                  _showVoucherForm();
-                } else {
-                  _showCashierForm();
-                }
-              },
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-              icon: const Icon(Icons.add, size: 20),
-              label: Text(
-                _currentView == 'products'
-                    ? 'TAMBAH PRODUK'
-                    : _currentView == 'vouchers'
-                        ? 'TAMBAH VOUCHER'
-                        : 'TAMBAH KASIR',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, letterSpacing: 0.5, fontSize: 13),
-              ),
-            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          if (_currentView == 'products') {
+            _showProductForm();
+          } else if (_currentView == 'vouchers') {
+            _showVoucherForm();
+          } else {
+            _showCashierForm();
+          }
+        },
+        backgroundColor: const Color(0xFF10B981),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        icon: const Icon(Icons.add, size: 20),
+        label: Text(
+          _currentView == 'products'
+              ? 'TAMBAH PRODUK'
+              : _currentView == 'vouchers'
+                  ? 'TAMBAH VOUCHER'
+                  : 'TAMBAH KASIR',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, letterSpacing: 0.5, fontSize: 13),
+        ),
+      ),
     );
   }
 
   Widget _buildBody() {
-    if (_currentView == 'dashboard') {
-      return _buildDashboardView();
-    } else if (_currentView == 'products') {
+    if (_currentView == 'products') {
       return _buildProductsView();
     } else if (_currentView == 'vouchers') {
       return _buildVouchersView();
